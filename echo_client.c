@@ -25,78 +25,10 @@
 
 char *progname;
 
-/* Size of maximum message to send.                                */
-//
-// #define MAXLINE 512
+
 #define MAXDATASIZE 2000
 const static int DATA_OFFSET = 4;
 
-//const static int MAX_BUFFER_SIZE = 516;
-
-
-/* The dg_cli function reads lines from the terminal, sends them   */
-/* to the echo server pointed to by pserv_addr, and prints to the  */
-/* terminal the echoed data. The local endpoint is sockfd. The     */
-/* function returns when an EOF is seen. Note that the server's    */
-/* address in pserv_addr is already initialized. Its size is held  */
-/* in servlen, so that the function works with other protocol      */
-/* families that have different address sizes.                     */
-
-void dg_cli(int sockfd, struct sockaddr *pserv_addr, int servlen)
-{
-
-/* Various counter and buffer variables. The extra byte in the     */
-/* receive buffer is used to add a null to terminate the string,   */
-/* as the network routines do not use nulls but I/O functions do.  */
-
-	int     n;
-	char    sendline[MAXLINE], recvline[MAXLINE + 1];
-
-/* Main client loop. Terminates on EOF. Get terminal input on the  */ 
-/* sendline buffer (up to MAXLINE bytes).                          */ 
-
-	while (fgets(sendline, MAXLINE, stdin) != NULL) 
-	{
-		
-/* Find the string's length to pass it as a parameter to the send  */
-/* calls (excluding the null in the end).                          */
-		
-		n = strlen(sendline); 
-		
-/* Send data using the sockfd socket, to the server at pserv_addr. */
-/* We also pass the send buffer and its size (sendline and n), an  */
-/* unused flag byte (0) and the server's address size (servlen).   */
-/* The returned number is the number of bytes sent. If it is not n */
-/* either an error or an interrupt has occured.                    */
-		
-		if (sendto(sockfd, sendline, n, 0, pserv_addr, servlen) != n)
-		{
-			printf("%s: sendto error on socket\n",progname);
-			exit(3);
-		}
-
-		printf("Sending %s to server\n", sendline);
-
-/* Read the echoed data from the same socket into the recvline     */
-/* buffer (up to MAXLINE bytes). The server's address and its size */
-/* are returned, but we do not need them, so we use null pointers. */
-/* The return value is the number of bytes received.               */
-
-		n = recvfrom(sockfd, recvline, MAXLINE, 0, NULL, NULL);
-		if (n < 0)
-		{
-			 printf("%s: recvfrom error\n",progname);
-			 exit(4);
-		}
-		
-/* The exchanged data is not null terminated, as the string length */
-/* is explicitly sent. We need to null terminate the string before */
-/* using fputs to output it on the terminal.                       */
-		
-		recvline[n] = 0;
-		fputs(recvline, stdout);
-	}
-}
 void request(int sockfd, struct sockaddr *pserv_addr, int servlen, unsigned short int opCode, char* filename, char* file_mode) {
 	int fileNameLength = strlen(filename);
 	int fileModeLength = strlen(file_mode);
