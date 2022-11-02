@@ -379,37 +379,7 @@ void request(int sockfd, struct sockaddr *pserv_addr, int servlen, unsigned shor
 // }
 
 
-// void send_message(int sockfd, struct sockaddr *pserv_addr, int servlen, Message message)
-// {
 
-// 	int n;
-
-// 	if (sendto(sockfd, (void *)&message, sizeof(Message), 0, pserv_addr, servlen) != sizeof(Message))
-// 	{
-// 		printf("%s: sendto error on socket\n",progname);
-// 		exit(3);
-// 	}
-
-// 	printf("Sending message type: %d to server with data\n", message.type);
-
-// 	for (int i = 0; i < message.datalen; i++)
-// 	{
-// 		printf("\tdata[%d]: %d\n", i, message.data[i]);
-// 	}
-
-// 	n = recvfrom(sockfd, &message, sizeof(Message), 0, NULL, NULL);
-// 	if (n < 0)
-// 	{
-// 		 printf("%s: recvfrom error\n",progname);
-// 		 exit(4);
-// 	}
-
-// 	printf("Received message type: %d from server with data\n", message.type);
-
-// 	for (int i = 0; i < message.datalen; i++)
-// 	{
-// 		printf("\tdata[%d]: %d\n", i, message.data[i]);
-// 	}
 
 // }
 /* The main program sets up the local socket for communication     */
