@@ -11,7 +11,7 @@
 #include <signal.h>         // for the signal handler registration.
 #include <unistd.h>
 
-#include "/Users/rashidibrahim/CSS_Classes/CSS432/GroupProject/Step1-tutor-2/client_server_tftp/tftp.h"
+#include"tftp.h"
 
 #define SERV_UDP_PORT   51527 // REPLACE WITH YOUR PORT NUMBER
 
@@ -19,119 +19,8 @@
 char *progname;
 
 
-/* The dg_echo function receives data from the already initialized */
-/* socket sockfd and returns them to the sender.                   */
-
-void dg_echo(int sockfd)
-{
-/* struct sockaddr is a general purpose data structure that holds  */
-/* information about a socket that can use a variety of protocols. */
-/* Here, we use Internet family protocols and UDP datagram ports.  */
-/* This structure receives the client's address whenever a         */
-/* datagram arrives, so it needs no initialization.                */
-
-struct sockaddr pcli_addr;
-
-/* Temporary variables, counters and buffers.                      */
-
-int    n, clilen;
-char   mesg[MAXMESG];
-
-/* Main echo server loop. Note that it never terminates, as there  */
-/* is no way for UDP to know when the data are finished.           */
-
-for ( ; ; ) 
-{
-
-/* Initialize the maximum size of the structure holding the        */
-/* client's address.                                               */
-
-	clilen = sizeof(struct sockaddr);
-
-/* Receive data on socket sockfd, up to a maximum of MAXMESG       */
-/* bytes, and store them in mesg. The sender's address is stored   */
-/* in pcli_addr and the structure's size is stored in clilen.      */
-	
-	n = recvfrom(sockfd, mesg, MAXMESG, 0, &pcli_addr, &clilen);
 
 
-/* n holds now the number of received bytes, or a negative number  */
-/* to show an error condition. Notice how we use progname to label */
-/* the source of the error.                                        */
-
-	if (n < 0)
-	{
-		printf("%s: recvfrom error\n",progname);
-		exit(3);
-	}
-
-	printf("Received: %s\n", mesg);
-
-/* Note that if you are using timeouts, n<0 may not mean an error, */
-/* but that the call was interrupted by a signal. To see what      */
-/* happened, you have to look at the value of the system variable  */
-/* errno (defined in <errno.h>).                                   */
-
-/* Send the received data back to the sender. The same socket      */
-/* (sockfd) is used for the reverse direction, the buffer is mesg  */
-/* with size n (the number of bytes received) and the sender's     */
-/* address is as received in the previous call (pcli_addr with     */
-/* size clilen). 0 is an unused flag byte. This call returns the   */
-/* number of bytes sent, which differs from what we wanted in case */
-/* of an error. Again, the return value may signify an interrupt.  */
-
-	if (sendto(sockfd, mesg, n, 0, &pcli_addr, clilen) != n)
-	{
-		printf("%s: sendto error\n",progname);
-		exit(4);
-	}
-
-	printf("Echo sent\n");
-}
-}
-
-// void receive_message(int sockfd)
-// {
-
-// 	struct sockaddr pcli_addr;
-
-// 	int    n, clilen;
-// 	Message message;
-
-// 	for ( ; ; ) 
-// 	{
-
-
-// 		clilen = sizeof(struct sockaddr);		
-	
-// 		n = recvfrom(sockfd, (void *)&message, sizeof(Message), 0, &pcli_addr, &clilen);
-
-// 		if (n < 0)
-// 		{
-// 			printf("%s: recvfrom error\n",progname);
-// 			exit(3);
-// 		}
-
-//     	printf("Received message type: %d and data:\n", message.type);
-
-// 		for (int i = 0; i < message.datalen; i++)
-// 		{
-// 			printf("\tdata[%d]: %d\n", i, message.data[i]);
-// 		}
-
-// 		message.type = ACK_FILE_DATA;
-// 		message.datalen = 4;
-// 		message.data[3] = 10;
-
-// 		if (sendto(sockfd, (void *)&message, sizeof(Message), 0, &pcli_addr, clilen) != n)
-// 		{
-// 		 	printf("%s: sendto error\n",progname);
-// 		 	exit(4);
-// 		}
-
-// 		printf("Echo sent\n");
-// 	}
-// }
 
 void recv_file(int sockfd)
 {
@@ -143,24 +32,24 @@ FILE *flptr = NULL;
 
 while(1)
 {
-	short int ack = 0;
-	clilen = sizeof(struct sockaddr);		
-	
-	n = recvfrom(sockfd, (void *)&message, sizeof(Message), 0, &pcli_addr, &clilen);
+clilen = sizeof(struct sockaddr);		
 
-	if (n < 0)
+n = recvfrom(sockfd, (void *)&message, sizeof(Message), 0, &pcli_addr, &clilen);
+
+if (n < 0)
+{
+	printf("%s: recvfrom error\n",progname);
+	exit(3);
+}
+char fileName[20];
+if(message.opCode == WRQ)
+{
+	printf("%s: received first WRQ \n",progname);
+	int startIndex = 0;
+	int c;
+	int index = 0;
+	while(1) 
 	{
-		printf("%s: recvfrom error\n",progname);
-		exit(3);
-	}
-	char fileName[20];
-	if(message.opCode == WRQ) {
-		printf("%s: received first WRQ \n",progname);
-		int startIndex = 0;
-		int c;
-		int index = 0;
-		while(1) {
-		
 		c = message.data[startIndex];
 		if (c == 0)
 		{
@@ -169,117 +58,52 @@ while(1)
 		startIndex++;
 		fileName[index] = c;
 		index++;
-	   }
-	   fileName[index] = '\0';
-		printf("Creating file with name: %s\n", fileName);
-		flptr = fopen(fileName, "w+");
-		if(flptr == NULL){
-			printf("Couldn't create file: %s\n", fileName);
-		}
-		memset(&message, 0, sizeof(Message));
-		message.block = ack;
-		message.opCode = 4;
-		if (sendto(sockfd, (void *)&message, sizeof(Message), 0, &pcli_addr, clilen) != n)
-		{
-			printf("%s: sendto error\n",progname);
-			exit(4);
-		}
-		ack++;
 	}
-
-
-	//Write 512 chars to the file
-	if(message.opCode == DATA) {
-		printf("%d: received data of block \n",message.block);
-		int startIndex = message.block * 512;
-			if (flptr != NULL)
-		{
-			fwrite(message.data + startIndex, 1, MAXLINE , flptr);
-		}
-
-		memset(&message, 0, sizeof(Message));
-		message.block = ack;
-		message.opCode = 4;
-		if (sendto(sockfd, (void *)&message, sizeof(Message), 0, &pcli_addr, clilen) != n)
-		{
-			printf("%s: sendto error\n",progname);
-			exit(4);
-		}
-		ack++;
-	}
-
-}
-
-}
-
+	fileName[index] = '\0';
 	
+	printf("Creating file with name: %s\n", fileName);
+	flptr = fopen(fileName, "w+");
+	if(flptr == NULL) 
+	{
+		printf("Couldn't create file: %s\n", fileName);
+	}
+	message.opCode = ACK;
+	if (sendto(sockfd, (void *)&message, sizeof(Message), 0, &pcli_addr, clilen) != n)
+	{
+		printf("%s: sendto error\n",progname);
+		exit(4);
+	}
+}
 
 
 
-	// if (message.type == NEW_FILE)
-	// {
-	// 	printf("Message type: NEW_FILE\n");
-	// }
-	// else if (message.type == FILE_DATA)
-	// {
-	// 	printf("Message type: FILE_DATA\n");
-	// }
-	// else if (message.type == FILE_END)
-	// {
-	// 	printf("Message type: FILE_END\n");
-	// }
-	// else if (message.type == ACK_FILE_DATA)
-	// {
-	// 	printf("Message type: ACK_FILE_DATA\n");
-	// }
-	// else 
-	// {
-	// 	printf("Message type: INVALID\n");
-	// }
+
+//Write 512 chars to the file
+else if(message.opCode == DATA)
+{
+	printf("%d: received data of block \n",message.block);
+	int startIndex = message.block * 512;
+	if (flptr != NULL)
+	{
+		fseek(flptr, startIndex, SEEK_SET);
+		fwrite(message.data, 1, MAXLINE , flptr);
+	}
 
 
-	// if (message.type == NEW_FILE)
-	// {
-	// 	char filename[100];
-	// 	memset(filename, 0, 100);
-	// 	memcpy(filename, message.data, message.datalen);
+	message.opCode = ACK;
+	if (sendto(sockfd, (void *)&message, sizeof(Message), 0, &pcli_addr, clilen) != n)
+	{
+		printf("%s: sendto error\n",progname);
+		exit(4);
+	}
+	
+}
 
-	// }
-	// else if (message.type == FILE_DATA)
-	// {
-	// 	if (flptr != NULL)
-	// 	{
-	// 		fwrite(message.data, message.datalen, 1, flptr);
-	// 	}
-	// }
-	// else if (message.type == FILE_END)
-	// {
-	// 	if (flptr != NULL)
-	// 	{
-	// 		fclose(flptr);
-	// 	}
+}
 
-	// 	message.type = ACK_FILE_DATA;
+}
 
-	// 	if (sendto(sockfd, (void *)&message, sizeof(Message), 0, &pcli_addr, clilen) != n)
-	// 	{
-	// 		printf("%s: sendto error\n",progname);
-	// 		exit(4);
-	// 	}
-	// }
-	// else
-	// {
-	// 	printf("Invalid message type: %d\n", message.type);
-	// }
-/* Receive the filname. */
 
-/* Create a file on the server with filename write mode. */
-
-/* Receive the file content length. */
-
-/* Start receiving the file contents and write them in the file opened */
-
-/* When received data size is equal to file content length, close the file. */
 
 
 /* Main driver program. Initializes server's socket and calls the  */
@@ -309,15 +133,15 @@ progname = argv[0];
 
 if ( (sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
 {
-		printf("%s: can't open datagram socket\n",progname);
-		exit(1); 
+	printf("%s: can't open datagram socket\n",progname);
+	exit(1); 
 }
 
 printf("Opened socket: %d\n", sockfd);
 
 /* Abnormal termination using the exit call may return a specific  */
 /* integer error code to distinguish among different errors.       */
-	
+
 /* To use the socket created, we must assign to it a local IP      */
 /* address and a UDP port number, so that the client can send data */
 /* to it. To do this, we fisrt prepare a sockaddr structure.       */
@@ -352,8 +176,8 @@ serv_addr.sin_port        = htons(SERV_UDP_PORT);
 
 if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0)
 {
-	printf("%s: can't bind local address\n",progname);
-	exit(2);
+printf("%s: can't bind local address\n",progname);
+exit(2);
 }
 
 /* We can now start the echo server's main loop. We only pass the  */

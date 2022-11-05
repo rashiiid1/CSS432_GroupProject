@@ -1,0 +1,8 @@
+rk, the intended recipient will timeout and may retransmit his
+   last packet (which may be data or an acknowledgment), thus causing
+   the sender of the lost packet to retransmit that lost packet.  The
+   sender has to keep just one packet on hand for retransmission, since
+   the lock step acknowledgment guarantees that all older packets have
+   been received.  Notice that both machines involved in a transfer are
+   considered senders and receivers.  One sends data and receives
+   acknowledgments, the othe

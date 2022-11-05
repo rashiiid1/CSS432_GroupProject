@@ -28,8 +28,10 @@ char *progname;
 
 #define MAXDATASIZE 2000
 const static int DATA_OFFSET = 4;
+static int Block = 0;
 
-void request(int sockfd, struct sockaddr *pserv_addr, int servlen, unsigned short int opCode, char* filename, char* file_mode) {
+
+void request_WRQ(int sockfd, struct sockaddr *pserv_addr, int servlen, unsigned short int opCode, char* filename, char* file_mode) {
 	int fileNameLength = strlen(filename);
 	int fileModeLength = strlen(file_mode);
 	Message message; 
@@ -41,8 +43,9 @@ void request(int sockfd, struct sockaddr *pserv_addr, int servlen, unsigned shor
 		message.data[fileNameLength] = 0;
 		memcpy(&message.data[fileNameLength + 1], file_mode, fileModeLength);
 		message.data[fileNameLength + 1 + fileModeLength] = 0;
-
-
+		message.block = Block;
+		
+		
 
 		if (sendto(sockfd, (void *)&message, sizeof(Message), 0, pserv_addr, servlen) != sizeof(Message)) {
 			printf("%s: sendto error on RRQ_or_WRQ packet \n",progname);
@@ -54,7 +57,14 @@ void request(int sockfd, struct sockaddr *pserv_addr, int servlen, unsigned shor
 			printf("%s: recvfrom error\n",progname);
 			exit(4);
 		}
+		if(message.opCode ==  ACK && message.block == Block) {
 			printf("ack: %hu\n", message.block);
+		} else {
+			printf("%s: wrong ack error\n",progname);
+			exit(5);
+		}
+		 Block++;
+			
 
 		//Send 512 and wait for ack and repeat that 
 		
@@ -67,61 +77,46 @@ void request(int sockfd, struct sockaddr *pserv_addr, int servlen, unsigned shor
 			printf("Error opening file.\n");
 			exit(4);
 		}
-		if (NULL != flptr) {
-		fseek (flptr, 0, SEEK_END);
-		int size = ftell(flptr);
-
-		if (0 == size) {
-			printf("file is empty\n");
-		}
-		}
+		
 
 		/* Copy the contents of the file into sendLine. */
-	short int _block = 	0;
+	
   	while (!feof(flptr) && !ferror(flptr)) 
   	{
   		/* Get length of file data (contents) */
 		/* Getting the file contents. */
 
   		//int datalen = fread(&message.data, sizeof(Message), 1, flptr);	
+
 		int datalen = 0;
-		int c;
-
-	
-	if (NULL != flptr) {
-		fseek (flptr, 0, SEEK_END);
-		int size = ftell(flptr);
-
-		if (0 == size) {
-			printf("file is empty\n");
-		}
-		}
 		
 		Message message; 
 		memset(&message, 0, sizeof(Message));
-		message.opCode = 3;
+		message.opCode = DATA;
 		
-		message.block = _block;	
-		int startIndex = 512 * _block;
-		datalen = 512 * _block;
-		_block++;
-		while( (datalen < startIndex + MAXLINE) && (!feof(flptr)))
+		message.block = Block;
+
+		int c;
+		while( (datalen < MAXLINE) && (!feof(flptr)))
  		{
-			c = fgetc(flptr);
+			c = (char)fgetc(flptr);
 			if (c == EOF)
 			{
 				break;
 			}
-			message.data[datalen] = c;
-			datalen++;
+			// while((c == fgetc(flptr)) != EOF) {
+				message.data[datalen] =  c;
+				datalen++;
+			// }
+			
 		}
 		
-		// if (datalen <= 0) 
-		// {
-		// 	printf("Error reading file.\n");
-		// 	fclose(flptr);
-	    // 	exit(4);
-	  	// }
+		if (datalen <= 0) 
+		{
+			printf("Error reading file.\n");
+			fclose(flptr);
+	    	exit(4);
+	  	}
 
 	  
 	  	if (sendto(sockfd, (void *)&message, sizeof(Message), 0, pserv_addr, servlen) != sizeof(Message))
@@ -137,246 +132,46 @@ void request(int sockfd, struct sockaddr *pserv_addr, int servlen, unsigned shor
 			printf("%s: recvfrom error\n",progname);
 			exit(4);
 		}
+		if(message.opCode ==  ACK && message.block == Block) {
 			printf("ack: %hu\n", message.block);
-
-		
+		} else {
+			printf("%s: wrong ack error\n",progname);
+			exit(5);
+		}
+		 Block++;
+			
 	}
 	
 	fclose(flptr);
 
+	}
+	
+}
 
-			
-		//}
-
-	// if(opCode == RRQ) {
-
-	// }
+void request_RRQ(int sockfd, struct sockaddr *pserv_addr, int servlen, unsigned short int opCode, char* filename, char* file_mode) {
+	int fileNameLength = strlen(filename);
+	int fileModeLength = strlen(file_mode);
+	Message message; 
+	memset(&message, 0, sizeof(Message));
+	//write request
+	if(opCode == RRQ) {
+		message.opCode = opCode;
+		memcpy(&message.data, filename, fileNameLength);
+		message.data[fileNameLength] = 0;
+		memcpy(&message.data[fileNameLength + 1], file_mode, fileModeLength);
+		message.data[fileNameLength + 1 + fileModeLength] = 0;
 	}
 
+
+	if (sendto(sockfd, (void *)&message, sizeof(Message), 0, pserv_addr, servlen) != sizeof(Message)) {
+		printf("%s: sendto error on RRQ packet \n",progname);
+		exit(3);
+	}
 
 	
 }
 
 	
-
-
-
-
-
-// void send_RRQ_or_WRQ_Packet(int sockfd, struct sockaddr *pserv_addr, int servlen, unsigned short int opCode, char* filename, char* file_mode){
-//     char buffer[MAXLINE];
-//     bzero(buffer, sizeof(buffer));
-    
-// 	printf("%lu: size of unsigned short\n",sizeof(opCode));
-
-// 	//opCodePtr pointer pointing to the buffer
-// 	unsigned short *opCodePtr = (unsigned short*) buffer;
-// 	//change to the format of the network using htons
-//     *opCodePtr = htons(opCode);
-	
-// 	 opCodePtr++; //pointing to the 3rd byte
-
-// 	char *ptr = (char*) opCodePtr;
-
-// 	//I am trying to populate filename in opcodePtr
-// 	char * t; 
-//     for (t = filename; *t != '\0'; t++) {
-// 		*ptr = *t;
-// 		++ptr;
-//     }
-// //when you need to restore your struct again, from ptr, just do the usual cast:
-// opCodePtr = (unsigned short*) ptr;   
-// 	//after the filename, create a 1 byte that is 0.
-// 	*opCodePtr = '0';
-
-
-// ptr = (char*) opCodePtr;
-// for (t = file_mode; *t != '\0'; t++) {
-// 		*ptr = *t;
-// 		++ptr;
-// }
-
-// opCodePtr = (unsigned short*) ptr;
-// *opCodePtr = '\0';
-
-// 		if (sendto(sockfd, (void *)&buffer, sizeof(buffer), 0, pserv_addr, servlen) != sizeof(buffer)) {
-// 			printf("%s: sendto error on RRQ_or_WRQ packet \n",progname);
-// 			exit(3);
-// 		}
-// 		// wait an ack
-
-// 		//if ack not received error(i.e file not found server)
-
-
-// 		//open 
-// 		if(opCode == 2 ) {
-// 			//open file 
-// 			//get 512 bytes and send it
-
-
-// 		} else if(opCode == 1) {
-// 			//create a file
-// 			//receive a packet from server
-// 			//check a block number and place its location
-// 			//
-// 		}
-	
-    
-   
-// }
-
-// void send_Data_Packet(int sockfd, struct sockaddr *pserv_addr, int servlen, unsigned short int opCode, char* filename){
-// 	char sendLine[MAXLINE];
-// 	char buffer[MAXLINE];
-//     bzero(buffer, sizeof(buffer));
-// 	bzero(sendLine, sizeof(sendLine));
-    
-    
-//    printf("%lu: size of unsigned short\n",sizeof(opCode));
-    
-//     unsigned short *opCodePtr = (unsigned short*) buffer;
-//     *opCodePtr = htons(opCode);
-//     //*opCodePtr = OP_CODE_DATA;
-//     opCodePtr++; //pointing to 3rd byte.
-    
-//     unsigned short blockNum = 1;
-//     unsigned short *blockNumPtr = opCodePtr;
-//     *blockNumPtr = htons(blockNum);
-
-
-// 		/* Open the file. */
-// 	FILE *flptr = fopen(filename, "r"); 
-
-// 	if (flptr == NULL) 
-// 	{
-//     	printf("Error opening file.\n");
-//     	exit(4);
-//   	}
-
-// 	    int datalen = 0;
-// 		int c;
-
-// 		while( (datalen < MAXLINE) && (!feof(flptr)))
-//  		{
-// 			c = fgetc(flptr);
-// 			if (c == EOF)
-// 			{
-// 				break;
-// 			}
-// 			sendLine[datalen] = c;
-// 			datalen++;
-// 		}
-//     char *fileData = buffer + DATA_OFFSET;
-//     char file[] = "This is a demo";
-//    // strncpy (fileData, sendLine, strlen(sendLine)); // bcopy , memcpy
-// 	memcpy(fileData, sendLine, strlen(sendLine));
-//     	if (sendto(sockfd, (void *)&fileData, sizeof(fileData), 0, pserv_addr, servlen) != sizeof(fileData)) {
-// 			printf("%s: sendto error on RRQ_or_WRQ packet \n",progname);
-// 			exit(3);
-// 		}
-   
-// }
-
-
-// void send_file(int sockfd, struct sockaddr *pserv_addr, int servlen, char* filename)
-// {
-// 	int     n;
-// 	char    sendline[MAXLINE];
-	
-// 	Message message;
-// 	memset(&message, 0, sizeof(Message));
-	
-// 	/* Open the file. */
-// 	FILE *flptr = fopen(filename, "r"); 
-
-// 	if (flptr == NULL) 
-// 	{
-//     	printf("Error opening file.\n");
-//     	exit(4);
-//   	}
-
-//   	/* Get length of filename to be sent. */
-
-//   	message.type = NEW_FILE;
-//   	message.datalen = strlen(filename);
-//   	memcpy(&message.data, filename, message.datalen);
-
-// 	/* Send the file name. */
-
-// 	if (sendto(sockfd, (void *)&message, sizeof(Message), 0, pserv_addr, servlen) != sizeof(Message))
-// 	{
-// 		printf("%s: sendto error on socket\n",progname);
-// 		fclose(flptr);
-// 		exit(3);
-// 	}
-
-// 	/* Copy the contents of the file into sendLine. */
-
-//   	while (!feof(flptr) && !ferror(flptr)) 
-//   	{
-//   		/* Get length of file data (contents) */
-// 		/* Getting the file contents. */
-
-//   		//int datalen = fread(&message.data, sizeof(Message), 1, flptr);
-		
-// 		int datalen = 0;
-// 		int c;
-
-// 		while( (datalen < MAXDATASIZE) && (!feof(flptr)))
-//  		{
-// 			c = fgetc(flptr);
-// 			if (c == EOF)
-// 			{
-// 				break;
-// 			}
-// 			message.data[datalen] = c;
-// 			datalen++;
-// 		}
-		
-// 		if (datalen <= 0) 
-// 		{
-// 			printf("Error reading file.\n");
-// 			fclose(flptr);
-// 	    	exit(4);
-// 	  	}
-
-// 		/* Send the length of contents. */
-// 		message.datalen = datalen;
-		
-// 	  	message.type = FILE_DATA;
-	  	
-// 	  	if (sendto(sockfd, (void *)&message, sizeof(Message), 0, pserv_addr, servlen) != sizeof(Message))
-// 		{
-// 			printf("%s: sendto error on socket\n",progname);
-// 			fclose(flptr);
-// 			exit(3);
-// 		}
-// 	}
-	
-// 	fclose(flptr);
-
-// 	/* Send file end. */
-// 	message.type = FILE_END;
-  	
-//   	if (sendto(sockfd, (void *)&message, sizeof(Message), 0, pserv_addr, servlen) != sizeof(Message))
-// 	{
-// 		printf("%s: sendto error on socket\n",progname);
-// 		fclose(flptr);
-// 		exit(3);
-// 	}
-
-// 	/* Wait for ack. */
-// 	if (recvfrom(sockfd, (void *)&message, sizeof(Message), 0, NULL, NULL) < 0)
-// 	{
-// 		 printf("%s: recvfrom error\n",progname);
-// 		 exit(4);
-// 	}
-
-// 	if (message.type == ACK_FILE_DATA)
-// 	{
-// 		printf("File %s transmitted successfully\n", filename);
-// 	}
-// }
 
 
 
@@ -453,25 +248,7 @@ int main(int argc, char *argv[])
 /* on the local endpoint, and the server's data that we already    */
 /* set up, so that communication can start from the client.        */
 
-	//dg_cli(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr));
 
-	/* call send_file() */
-
-#if 0	
-	Message message;
-
-	memset(&message, 0, sizeof(Message));
-
-	message.type = NEW_FILE;
-	message.datalen = 3;
-	message.data[0] = 1;
-	message.data[1] = 2;
-	message.data[2] = 3;
-
-	send_message(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr), message);
-#endif
-
-//send_file(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr), "file_to_send.txt");
 	
 	// printf("If requesting read enter 1. If requesting write enter 2");
 	// unsigned short opcode;	
@@ -489,8 +266,10 @@ int main(int argc, char *argv[])
 
 	// 	//send out data block#1
 	//  }
-unsigned short int opcode = 2; 
-request(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr), opcode, "file_to_send.txt", "mode");
+unsigned short int opcode_WRQ = 2; 
+unsigned short int opcode_RRQ = 1; 
+request_WRQ(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr), opcode_WRQ, "file_to_send.txt", "mode");
+//request_RRQ(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr), opcode_RRQ, "file_to_send.txt", "mode");
 //send_RRQ_or_WRQ_Packet(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr), opcode, "file_to_send.txt", "mode");
 // send_Data_Packet(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr), opcode, "file_to_send.txt");
 /* We return here after the client sees the EOF and terminates.    */
