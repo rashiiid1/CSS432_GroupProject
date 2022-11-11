@@ -73,13 +73,7 @@ if(message.opCode == WRQ)
 		printf("%s: sendto error\n",progname);
 		exit(4);
 	}
-}
-
-
-
-
-//Write 512 chars to the file
-else if(message.opCode == DATA)
+} else if(message.opCode == DATA)
 {
 	printf("%d: received data of block \n",message.block);
 	int startIndex = message.block * 512;
@@ -88,8 +82,6 @@ else if(message.opCode == DATA)
 		fseek(flptr, startIndex, SEEK_SET);
 		fwrite(message.data, 1, MAXLINE , flptr);
 	}
-
-
 	message.opCode = ACK;
 	if (sendto(sockfd, (void *)&message, sizeof(Message), 0, &pcli_addr, clilen) != n)
 	{
@@ -97,6 +89,114 @@ else if(message.opCode == DATA)
 		exit(4);
 	}
 	
+} else if (message.opCode == RRQ) {
+	int Block = 1;
+	char* filename = "file_from_server.txt";
+	char* file_mode = "mode";
+	int fileNameLength = strlen(filename);
+	int fileModeLength = strlen(file_mode);
+	Message message; 
+	memset(&message, 0, sizeof(Message));
+	//write request
+	message.opCode = RRQ;
+	memcpy(&message.data, filename, fileNameLength);
+	message.data[fileNameLength] = 0;
+	memcpy(&message.data[fileNameLength + 1], file_mode, fileModeLength);
+	message.data[fileNameLength + 1 + fileModeLength] = 0;
+
+	if (sendto(sockfd, (void *)&message, sizeof(Message), 0, &pcli_addr, clilen) != sizeof(Message)) {
+	printf("%s: sendto error on RRQ_or_WRQ packet \n",progname);
+	exit(3);
+}
+	/* Wait for ack. */
+if (recvfrom(sockfd, (void *)&message, sizeof(Message), 0, &pcli_addr, clilen) < 0)
+{
+	printf("%s: recvfrom error\n",progname);
+	exit(4);
+}
+if(message.opCode ==  ACK && message.block == Block) {
+	printf("ack: %hu\n", message.block);
+} else {
+	printf("%s: wrong ack error\n",progname);
+	exit(5);
+}
+
+/* Open the file. */
+FILE *flptr = fopen(filename, "r"); 
+
+if (flptr == NULL) 
+{
+	printf("Error opening file.\n");
+	exit(4);
+}
+
+
+/* Copy the contents of the file into sendLine. */
+
+while (!feof(flptr) && !ferror(flptr)) 
+{
+/* Get length of file data (contents) */
+/* Getting the file contents. */
+
+//int datalen = fread(&message.data, sizeof(Message), 1, flptr);	
+
+int datalen = 0;
+
+Message message; 
+memset(&message, 0, sizeof(Message));
+message.opCode = DATA;
+
+//message.block = Block;
+
+int c;
+while( (datalen < MAXLINE) && (!feof(flptr)))
+{
+	c = (char)fgetc(flptr);
+	if (c == EOF)
+	{
+		break;
+	}
+		message.data[datalen] =  c;
+		datalen++;
+	
+}
+
+if (datalen <= 0) 
+{
+	printf("Error reading file.\n");
+	fclose(flptr);
+	exit(4);
+}
+
+int count = 1;
+printf("%d: # of times to send \n",count);
+count++;
+
+if (sendto(sockfd, (void *)&message, sizeof(Message), 0, &pcli_addr, clilen) != sizeof(Message))
+{
+	printf("%s: sendto error on socket\n",progname);
+	fclose(flptr);
+	exit(3);
+}
+
+	/* Wait for ack. */
+if (recvfrom(sockfd, (void *)&message, sizeof(Message), 0, &pcli_addr, clilen) < 0)
+{
+	printf("%s: recvfrom error\n",progname);
+	exit(4);
+}
+if(message.opCode ==  ACK && message.block == Block) {
+	printf("ack: %hu\n", message.block);
+} else {
+	printf("%s: wrong ack error\n",progname);
+	exit(5);
+}
+	Block++;
+
+}
+
+fclose(flptr);
+
 }
 
 }
