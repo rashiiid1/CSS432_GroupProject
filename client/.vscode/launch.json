@@ -1,0 +1,17 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "C/C++ Runner: Debug Session",
+      "type": "cppdbg",
+      "request": "launch",
+      "args": [],
+      "stopAtEntry": true,
+      "externalConsole": false,
+      "cwd": "/Users/rashidibrahim/CSS_Classes/CSS432/gitRepo/client_server_tftp/client",
+      "program": "/Users/rashidibrahim/CSS_Classes/CSS432/gitRepo/client_server_tftp/client/build/Debug/outDebug",
+      "MIMode": "gdb",
+      "miDebuggerPath": "gdb"
+    }
+  ]
+}
