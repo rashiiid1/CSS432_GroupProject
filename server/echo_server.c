@@ -63,7 +63,7 @@ void recv_file(int sockfd)
 				printf("Couldn't create file: %s\n", fileName);
 			}
 			message.opCode = ACK;
-			if (sendto(sockfd, (void *)&message, sizeof(Message), 0, &pcli_addr, clilen) <= 0)
+			if (sendto(sockfd, (void *)&message, 4, 0, &pcli_addr, clilen) <= 0)
 			{
 				printf("%s: sendto error\n", progname);
 				exit(4);
@@ -84,10 +84,110 @@ void recv_file(int sockfd)
 				printf("%s: sendto error\n", progname);
 				exit(4);
 			}
-			if(bytes_received < 516) {
+			if (bytes_received < 516)
+			{
 				printf("Last data packet received. Closing file. \n");
 				fclose(flptr);
 			}
+		}
+		else if (message.opCode = RRQ)
+		{
+			printf("%s: received first RRQ \n", progname);
+			int startIndex = 0;
+			int c;
+			int index = 0;
+			while (1)
+			{
+				c = message.data[startIndex];
+				if (c == 0)
+				{
+					break;
+				}
+				startIndex++;
+				fileName[index] = c;
+				index++;
+			}
+			fileName[index] = '\0';
+
+			printf("Creating file with name: %s\n", fileName);
+			flptr = fopen(fileName, "r");
+			if (flptr == NULL)
+			{
+				printf("Couldn't create file: %s\n", fileName);
+			}
+
+			/* Copy the contents of the file into sendLine. */
+			int Block = 1;
+			while (!feof(flptr) && !ferror(flptr))
+			{
+				/* Get length of file data (contents) */
+				/* Getting the file contents. */
+
+				// int datalen = fread(&message.data, sizeof(Message), 1, flptr);
+
+				int datalen = 0;
+
+				Message message;
+				memset(&message, 0, sizeof(Message));
+				message.opCode = DATA;
+
+				message.block = Block;
+
+				int c;
+				int packetlen = 0;
+
+				/* Read a max of 512 characters. */
+				while ((datalen < MAXLINE) && (!feof(flptr)))
+				{
+					c = (char)fgetc(flptr);
+					if (c == EOF)
+					{
+						break;
+					}
+					message.data[datalen] = c;
+					datalen++;
+				}
+
+				if (datalen <= 0)
+				{
+					printf("Error reading file.\n");
+					fclose(flptr);
+					exit(4);
+				}
+				else
+				{
+					// packetlen is sum of datalen, 2 bytes of opcode and 2 bytes of block number.
+					packetlen = datalen + 4;
+				}
+
+				/* Send the data packet. */
+				if (sendto(sockfd, (void *)&message, packetlen, 0, &pcli_addr, &clilen) != packetlen)
+				{
+					printf("%s: sendto error on socket\n", progname);
+					fclose(flptr);
+					exit(3);
+				}
+
+				/* Wait for ack. */
+				if (recvfrom(sockfd, (void *)&message, sizeof(Message), 0, &pcli_addr, &clilen) < 0)
+				{
+					printf("%s: recvfrom error\n", progname);
+					exit(4);
+				}
+				if (message.opCode == ACK && message.block == Block)
+				{
+					printf("ack: %hu\n", message.block);
+				}
+				else
+				{
+					printf("%s: wrong ack error\n", progname);
+					exit(5);
+				}
+
+				Block++;
+			}
+
+			fclose(flptr);
 		}
 	}
 }
