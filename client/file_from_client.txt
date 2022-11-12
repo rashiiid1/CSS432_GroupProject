@@ -22,6 +22,4 @@ other datagram protocol) as the source and destination ports.  A
 requesting host chooses its source TID as described above, and sends
 its initial request to the known TID 69 decimal (105 octal) on the
 serving host.  The response to the request, under normal operation,
-u2233a TID chosen by the server as its source TID and the TID chosen
-for the previous message by the requestor as its destination TID.
-The two chosen TID's are then used for the remainder of the transfer.
+u22

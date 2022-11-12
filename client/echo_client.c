@@ -47,7 +47,7 @@ void request_WRQ(int sockfd, struct sockaddr *pserv_addr, int servlen, unsigned 
 		message.block = Block;
 		messageLength = fileNameLength + 1 + fileModeLength + 4;
 		/* Send the WRQ packet. */
-		if (sendto(sockfd, (void *)&message, messageLength, 0, pserv_addr, servlen) != sizeof(Message))
+		if (sendto(sockfd, (void *)&message, messageLength, 0, pserv_addr, servlen) != messageLength)
 		{
 			printf("%s: sendto error on RRQ_or_WRQ packet \n", progname);
 			exit(3);
@@ -159,7 +159,7 @@ void request_WRQ(int sockfd, struct sockaddr *pserv_addr, int servlen, unsigned 
 		messageLength = fileNameLength + 1 + fileModeLength + 4;
 		message.block = Block;
 		/* Send the RRQ packet. */
-		if (sendto(sockfd, (void *)&message, messageLength, 0, pserv_addr, servlen) != sizeof(Message))
+		if (sendto(sockfd, (void *)&message, messageLength, 0, pserv_addr, servlen) != messageLength)
 		{
 			printf("%s: sendto error on RRQ_or_WRQ packet \n", progname);
 			exit(3);
@@ -335,10 +335,9 @@ int main(int argc, char *argv[])
 	// 	// receive ack #1
 
 	// 	//send out data block#1
-	//  }
-	unsigned short int opcode_WRQ = 2;
-	unsigned short int opcode_RRQ = 1;
-	request_WRQ(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr), opcode_WRQ, "file_from_client.txt", "mode");
+
+	//request_WRQ(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr), WRQ, "file_from_client.txt", "mode");
+	request_WRQ(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr), RRQ, "file_from_server.txt", "mode");
 	// request_RRQ(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr), opcode_RRQ, "file_to_send.txt", "mode");
 	// send_RRQ_or_WRQ_Packet(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr), opcode, "file_to_send.txt", "mode");
 	//  send_Data_Packet(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr), opcode, "file_to_send.txt");

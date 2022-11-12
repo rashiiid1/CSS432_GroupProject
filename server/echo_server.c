@@ -90,8 +90,9 @@ void recv_file(int sockfd)
 				fclose(flptr);
 			}
 		}
-		else if (message.opCode = RRQ)
+		else if (message.opCode == RRQ)
 		{
+			int Block = 1;
 			printf("%s: received first RRQ \n", progname);
 			int startIndex = 0;
 			int c;
@@ -114,10 +115,10 @@ void recv_file(int sockfd)
 			if (flptr == NULL)
 			{
 				printf("Couldn't create file: %s\n", fileName);
+			} else {
+				printf("File succesfully created: %s\n", fileName);
 			}
-
 			/* Copy the contents of the file into sendLine. */
-			int Block = 1;
 			while (!feof(flptr) && !ferror(flptr))
 			{
 				/* Get length of file data (contents) */
@@ -161,7 +162,7 @@ void recv_file(int sockfd)
 				}
 
 				/* Send the data packet. */
-				if (sendto(sockfd, (void *)&message, packetlen, 0, &pcli_addr, &clilen) != packetlen)
+				if (sendto(sockfd, (void *)&message, packetlen, 0, &pcli_addr, clilen) != packetlen)
 				{
 					printf("%s: sendto error on socket\n", progname);
 					fclose(flptr);
