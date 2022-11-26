@@ -28,7 +28,7 @@ char *progname;
 const static int DATA_OFFSET = 4;
 static int Block = 0;
 
-void request_WRQ(int sockfd, struct sockaddr *pserv_addr, int servlen, unsigned short int opCode, char *filename, char *file_mode)
+void request(int sockfd, struct sockaddr *pserv_addr, int servlen, unsigned short int opCode, char *filename, char *file_mode)
 {
 	int fileNameLength = strlen(filename);
 	int fileModeLength = strlen(file_mode);
@@ -63,20 +63,36 @@ void request_WRQ(int sockfd, struct sockaddr *pserv_addr, int servlen, unsigned 
 		{
 			printf("ack: %hu\n", message.block);
 		}
-		else
-		{
-			printf("%s: wrong ack error\n", progname);
-			exit(5);
-		}
+		// else
+		// {
+		// 	printf("%s: wrong ack error\n", progname);
+		// 	exit(5);
+		// }
 		Block++;
 
 		/* Open the file. */
 		FILE *flptr = fopen(filename, "r");
-
+		fseek(flptr, 0L, SEEK_END);
+		int size = ftell(flptr);
+		message.fileSize = size;
+		fseek(flptr, 0, SEEK_SET);
+		printf("%d: message.fileSize \n", message.fileSize);
 		if (flptr == NULL)
 		{
-			printf("Error opening file.\n");
-			exit(4);
+			message.opCode = ERROR;
+			message.data[0] = 1;
+			char ErrMsg[50] = "File Not found";
+			int ErrMsgLength = strlen(ErrMsg);
+			memcpy(&message.data[1], ErrMsg, ErrMsgLength);
+			message.data[ErrMsgLength + 1] = 0;
+			messageLength = ErrMsgLength + 1 + 5;
+			/* Send the ERROR packet. */
+			if (sendto(sockfd, (void *)&message, messageLength, 0, pserv_addr, servlen) != messageLength)
+			{
+				printf("%s: sendto error on ERROR packet \n", progname);
+				exit(3);
+			}
+			exit(3);
 		}
 
 		/* Copy the contents of the file into sendLine. */
@@ -93,19 +109,19 @@ void request_WRQ(int sockfd, struct sockaddr *pserv_addr, int servlen, unsigned 
 			Message message;
 			memset(&message, 0, sizeof(Message));
 			message.opCode = DATA;
-
+			message.fileSize = size;
 			message.block = Block;
 
 			int c;
 			while ((datalen < MAXLINE) && (!feof(flptr)))
 			{
 				c = (char)fgetc(flptr);
+				message.data[datalen] = c;
+				datalen++;
 				if (c == EOF)
 				{
 					break;
 				}
-				message.data[datalen] = c;
-				datalen++;
 			}
 
 			if (datalen <= 0)
@@ -120,11 +136,17 @@ void request_WRQ(int sockfd, struct sockaddr *pserv_addr, int servlen, unsigned 
 				packetlen = datalen + 4;
 			}
 			/* Send the data packet. */
-			if (sendto(sockfd, (void *)&message, packetlen, 0, pserv_addr, servlen) != packetlen)
+			if (sendto(sockfd, (void *)&message, packetlen, 0, pserv_addr, servlen) <= 0)
 			{
 				printf("%s: sendto error on socket\n", progname);
-				fclose(flptr);
 				exit(3);
+			}
+			/* Last packet sent */
+			if (packetlen < 516)
+			{
+				printf("%s: Last packet is sent\n", progname);
+				// fclose(flptr);
+				// exit(4);
 			}
 
 			/* Wait for ack. */
@@ -137,11 +159,11 @@ void request_WRQ(int sockfd, struct sockaddr *pserv_addr, int servlen, unsigned 
 			{
 				printf("ack: %hu\n", message.block);
 			}
-			else
-			{
-				printf("%s: wrong ack error\n", progname);
-				exit(5);
-			}
+			// else
+			// {
+			// 	printf("%s: wrong ack error 2 \n", progname);
+			// 	exit(5);
+			// }
 
 			Block++;
 		}
@@ -164,90 +186,57 @@ void request_WRQ(int sockfd, struct sockaddr *pserv_addr, int servlen, unsigned 
 			printf("%s: sendto error on RRQ_or_WRQ packet \n", progname);
 			exit(3);
 		}
-		/* Received first data block */
-		int bytes_received;;
-		bytes_received = recvfrom(sockfd, (void *)&message, sizeof(Message), 0, NULL, NULL);
-		if (bytes_received <= 0)
-		{
-			printf("%s: recvfrom error\n", progname);
-			exit(4);
-		}
-		Block++;
-		/* Check if data was received. */
-		if (message.opCode == DATA && message.block == Block)
-		{
-			printf("ack: %hu\n", message.block);
-		}
-		else
-		{
-			printf("%s: wrong data error\n", progname);
-			exit(5);
-		}
-
-		printf("%d: received data of block \n", message.block);
-		int startIndex = (message.block - 1) * 512;
-		/* Open the file. */
-		FILE *flptr = fopen(filename, "w");
-		if (flptr != NULL)
-		{
-			fseek(flptr, startIndex, SEEK_SET);
-			fwrite(message.data, 1, bytes_received - 4, flptr);
-		}
-		else
-		{
-			printf("%s: can't open file 2\n", progname);
-			exit(5);
-		}
-		if(bytes_received < 516) 
-		{
-			printf("%s: end of file. closing file 2\n", progname);
-			fclose(flptr);
-		}
-		message.opCode = ACK;
-
-		if (sendto(sockfd, (void *)&message, 4, 0, pserv_addr, servlen) <= 0)
-		{
-			printf("%s: sendto error 2\n", progname);
-			exit(4);
-		}
-
+		/* Open the file to write. */
+		FILE *flptr = fopen(filename, "w+");
 		while (1)
 		{
-
-			int bytes_received = bytes_received = recvfrom(sockfd, (void *)&message, sizeof(Message), 0, NULL, NULL);
-
+			/* Received first data block */
+			int bytes_received;
+			bytes_received = recvfrom(sockfd, (void *)&message, sizeof(Message), 0, NULL, NULL);
 			if (bytes_received <= 0)
 			{
 				printf("%s: recvfrom error\n", progname);
-				exit(3);
+				exit(4);
 			}
-			// Write 512 chars to the file
-		    if (message.opCode == DATA)
+			Block++;
+			/* Check if data was received. */
+			if (message.opCode == DATA && message.block == Block)
 			{
-				printf("%d: received data of block \n", message.block);
-				int startIndex = (message.block - 1) * 512;
-				if (flptr != NULL)
-				{
-					fseek(flptr, startIndex, SEEK_SET);
-					fwrite(message.data, 1, bytes_received - 4, flptr);
-				}
+				printf("ack: %hu\n", message.block);
+			}
+			// else
+			// {
+			// 	printf("%s: wrong data error\n", progname);
+			// 	exit(5);
+			// }
 
-				message.opCode = ACK;
-
-				if (sendto(sockfd, (void *)&message, 4, 0, pserv_addr, servlen) <= 0)
-				{
-					exit(4);
-				}
-
-				if (bytes_received < 516)
-				{
-					printf("Last data packet received. Closing file. \n");
-					fclose(flptr);
-				}
+			printf("%d: received data of block \n", message.block);
+			int startIndex = (message.block - 1) * 512;
+			if (flptr != NULL)
+			{
+				fseek(flptr, startIndex, SEEK_SET);
+				fwrite(message.data, 1, bytes_received - 4, flptr);
+			}
+			// else
+			// {
+			// 	printf("%s: can't open file 2\n", progname);
+			// 	exit(5);
+			// }
+			if (bytes_received < 516)
+			{
+				printf("%s: end of file. closing file 2\n", progname);
+				fclose(flptr);
+			}
+			message.opCode = ACK;
+			if (sendto(sockfd, (void *)&message, 4, 0, pserv_addr, servlen) <= 0)
+			{
+				printf("%s: sendto error 2\n", progname);
+				exit(4);
 			}
 		}
 	}
 }
+
 
 // }
 /* The main program sets up the local socket for communication     */
@@ -258,12 +247,47 @@ int main(int argc, char *argv[])
 {
 	int sockfd;
 
+	int serverPort = SERV_UDP_PORT;
+	// read = 1
+	// write = 0
+	int r_or_write = 1;
+
+	char *filename = (char *)malloc(20);
+	strcpy(filename, "file_from_client.txt");
+	/* Overwrite the defaults if they are provided by the command line. */
+	int i;
+	for (i = 1; i < argc; i++)
+	{
+		//  printf("argv[%u] = %s\n", i, argv[i]);
+		if (argv[i][0] == '-')
+		{
+			if (argv[i][1] == 'p')
+			{
+				serverPort = atoi(argv[i + 1]);
+				i++;
+			}
+			if (argv[i][0] == 'r')
+			{
+				r_or_write = 1;
+				strcpy(filename, argv[i + 1]);
+				i++;
+			}
+			if (argv[i][1] == 'w')
+			{
+				r_or_write = 0;
+				strcpy(filename, argv[i + 1]);
+				i++;
+			}
+		}
+	}
+
 	/* We need to set up two addresses, one for the client and one for */
 	/* the server.                                                     */
 
 	struct sockaddr_in cli_addr, serv_addr;
 	progname = argv[0];
 
+	printf("%s: using port %d\n", progname, serverPort);
 	/* Initialize first the server's data with the well-known numbers. */
 
 	bzero((char *)&serv_addr, sizeof(serv_addr));
@@ -273,7 +297,7 @@ int main(int argc, char *argv[])
 	/* use inet_addr to convert the dotted decimal notation to it.     */
 
 	serv_addr.sin_addr.s_addr = inet_addr(SERV_HOST_ADDR);
-	serv_addr.sin_port = htons(SERV_UDP_PORT);
+	serv_addr.sin_port = htons(serverPort);
 
 	/* Create the socket for the client side.                          */
 
@@ -315,34 +339,25 @@ int main(int argc, char *argv[])
 	}
 
 	printf("Bind successful\n");
+	// if(argc == 2) {
 
-	/* Call the main client loop. We need to pass the socket to use    */
-	/* on the local endpoint, and the server's data that we already    */
-	/* set up, so that communication can start from the client.        */
+	// }
+	// printf("arg %d - %s\n", 0, argv[0]);
+	// printf("arg %d - %s\n", 1, argv[1]);
+	// printf("arg %d - %s\n", 2, argv[2]);
+	// if(argv[1] =="-r") {
 
-	// printf("If requesting read enter 1. If requesting write enter 2");
-	// unsigned short opcode;
-	//  scanf("%hu", &opcode);
-	//  //printf("You requested %d \n",opcode);
-	//  printf("opcode: %hu\n", opcode);
-	//  if(opcode == 1) {
-	// 		send_RRQ();
-	//  }
-
-	//  if(opcode == 2) {
-	// 	//send out a WRQ
-	// 	send_WRQ();
-	// 	// receive ack #1
-
-	// 	//send out data block#1
-
-	//request_WRQ(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr), WRQ, "file_from_client.txt", "mode");
-	request_WRQ(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr), RRQ, "file_from_server.txt", "mode");
-	// request_RRQ(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr), opcode_RRQ, "file_to_send.txt", "mode");
-	// send_RRQ_or_WRQ_Packet(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr), opcode, "file_to_send.txt", "mode");
-	//  send_Data_Packet(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr), opcode, "file_to_send.txt");
-	/* We return here after the client sees the EOF and terminates.    */
-	/* We can now release the socket and exit normally.                */
+	// 	 request(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr), RRQ, argv[2], "mode");
+	// }]
+	// printf("Client got socket %d\n", sockfd);
+	if (r_or_write == 0)
+	{
+		request(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr), WRQ, filename, "mode");
+	}
+	else
+	{
+		request(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr), RRQ, filename, "mode");
+	}
 
 	close(sockfd);
 	exit(0);

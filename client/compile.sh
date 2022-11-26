@@ -1,5 +1,5 @@
 #!/bin/sh
 
 
-gcc echo_client.c -o echo_client
-chmod 744  echo_client
+gcc client.c -o client -g
+chmod 744  client

@@ -1,5 +1,5 @@
 #!/bin/sh
 
-gcc echo_server.c -o echo_server -g
+gcc server.c -o server -g
 
-chmod 744 echo_server 
+chmod 744 server 

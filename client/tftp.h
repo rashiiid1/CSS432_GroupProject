@@ -26,6 +26,8 @@ typedef struct
   short int opCode;
   short int block;
   unsigned char data[512];
+  int fileSize;
+
 
 }Message;
 
