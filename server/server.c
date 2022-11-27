@@ -108,7 +108,8 @@ void recv_file(int sockfd)
 				// } else {
 				// 	fwrite(message.data, 1, MAXLINE, flptr);
 				// }
-				if (message.data[bytes_received - 4] == EOF)
+				char possible_eof = message.data[bytes_received -5];
+				if (possible_eof == EOF)
 				{
 					fwrite(message.data, 1, bytes_received - 5, flptr);
 					printf("Last data packet received. Closing file 1. \n");
@@ -133,7 +134,7 @@ void recv_file(int sockfd)
 		}
 		else if (message.opCode == RRQ)
 		{
-			int Block = 0;
+			int Block = 1;
 			printf("%s: received first RRQ \n", progname);
 			int startIndex = 0;
 			int c;
@@ -181,12 +182,12 @@ void recv_file(int sockfd)
 				while ((datalen < MAXLINE) && (!feof(flptr)))
 				{
 					c = (char)fgetc(flptr);
+					message.data[datalen] = c;
+					datalen++;
 					if (c == EOF)
 					{
 						break;
 					}
-					message.data[datalen] = c;
-					datalen++;
 
 					if (datalen <= 0)
 					{
@@ -257,7 +258,7 @@ int main(int argc, char *argv[])
 	/* argv[0] holds the program's name. We use this to label error    */
 	/* reports.                                                        */
 
-
+	progname = argv[0];
 	// char *filename = (char *)malloc(20);
 	// strcpy(filename, "file_from_client.txt");
 	/* Overwrite the defaults if they are provided by the command line. */
