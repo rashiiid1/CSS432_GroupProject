@@ -7,8 +7,9 @@
       "request": "launch",
       "program": "${fileDirname}/client",
       "args": [
-        "-r",
-        "file_from_client.txt"
+        "-w",
+        "file_from_client.txt",
+        "-p", "51527"
       ],
       "stopAtEntry": false,
       "cwd": "${fileDirname}",

@@ -257,12 +257,21 @@ int main(int argc, char *argv[])
 	/* argv[0] holds the program's name. We use this to label error    */
 	/* reports.                                                        */
 
-	progname = argv[0];
-	if (argc == 3)
+
+	// char *filename = (char *)malloc(20);
+	// strcpy(filename, "file_from_client.txt");
+	/* Overwrite the defaults if they are provided by the command line. */
+	int i;
+	for (i = 1; i < argc; i++)
 	{
-		if (strcmp(argv[1], "-p") == 0)
+		//  printf("argv[%u] = %s\n", i, argv[i]);
+		if (argv[i][0] == '-')
 		{
-			serverPort = atoi(argv[2]);
+			if (argv[i][1] == 'p')
+			{
+				serverPort = atoi(argv[i + 1]);
+				i++;
+			}
 		}
 	}
 	printf("%s: using port %d\n", progname, serverPort);

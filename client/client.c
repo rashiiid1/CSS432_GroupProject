@@ -215,22 +215,21 @@ void request(int sockfd, struct sockaddr *pserv_addr, int servlen, unsigned shor
 			if (flptr != NULL)
 			{
 				fseek(flptr, startIndex, SEEK_SET);
-				fwrite(message.data, 1, bytes_received - 4, flptr);
-			}
-			// else
-			// {
-			// 	printf("%s: can't open file 2\n", progname);
-			// 	exit(5);
-			// }
-			if (bytes_received < 516)
-			{
-				printf("%s: end of file. closing file 2\n", progname);
-				fclose(flptr);
+				char possible_eof = message.data[bytes_received -5];
+				if(possible_eof == EOF) {
+					fwrite(message.data, 1, bytes_received - 5, flptr);
+					printf("Last data packet received. Closing file 1. \n");
+					fclose(flptr);
+					break;
+				} else {
+					fwrite(message.data, 1, MAXLINE, flptr);
+				}
+				
 			}
 			message.opCode = ACK;
 			if (sendto(sockfd, (void *)&message, 4, 0, pserv_addr, servlen) <= 0)
 			{
-				printf("%s: sendto error 2\n", progname);
+				printf("%s: Client is unable to send acknowledgement. sendto error 2\n", progname);
 				exit(4);
 			}
 		}
@@ -252,7 +251,7 @@ int main(int argc, char *argv[])
 	// write = 0
 	int r_or_write = 1;
 
-	char *filename = (char *)malloc(20);
+	char *filename = (char *)malloc(sizeof(char) * 50);
 	strcpy(filename, "file_from_client.txt");
 	/* Overwrite the defaults if they are provided by the command line. */
 	int i;
@@ -266,7 +265,7 @@ int main(int argc, char *argv[])
 				serverPort = atoi(argv[i + 1]);
 				i++;
 			}
-			if (argv[i][0] == 'r')
+			if (argv[i][1] == 'r')
 			{
 				r_or_write = 1;
 				strcpy(filename, argv[i + 1]);
@@ -339,17 +338,7 @@ int main(int argc, char *argv[])
 	}
 
 	printf("Bind successful\n");
-	// if(argc == 2) {
 
-	// }
-	// printf("arg %d - %s\n", 0, argv[0]);
-	// printf("arg %d - %s\n", 1, argv[1]);
-	// printf("arg %d - %s\n", 2, argv[2]);
-	// if(argv[1] =="-r") {
-
-	// 	 request(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr), RRQ, argv[2], "mode");
-	// }]
-	// printf("Client got socket %d\n", sockfd);
 	if (r_or_write == 0)
 	{
 		request(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr), WRQ, filename, "mode");
