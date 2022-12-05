@@ -29,6 +29,7 @@
     "**/.vscode/**"
   ],
   "files.associations": {
-    "tftp.h": "c"
+    "tftp.h": "c",
+    "signal.h": "c"
   }
 }
