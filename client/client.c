@@ -110,6 +110,8 @@ void request(int sockfd, struct sockaddr *pserv_addr, int servlen, unsigned shor
 	int messageLength;
 	Message message;
 	memset(&message, 0, sizeof(Message));
+	int bytes_sent;
+	int bytes_received;
 	// write request
 	if (opCode == WRQ)
 	{
@@ -123,7 +125,9 @@ void request(int sockfd, struct sockaddr *pserv_addr, int servlen, unsigned shor
 		messageLength = fileNameLength + 1 + fileModeLength + 4;
 		
 		/* Send the WRQ packet. */
-		if (sendto_with_alarm(sockfd, (void *)&message, messageLength, 0, pserv_addr, servlen, 3) != messageLength)
+		bytes_received = sendto_with_alarm(sockfd, (void *)&message, messageLength, 0, pserv_addr, servlen, 3, &bytes_sent);
+
+		if (bytes_sent != messageLength)
 		{
 			printf("%s: sendto error on RRQ_or_WRQ packet \n", progname);
 			exit(3);
@@ -191,7 +195,8 @@ void request(int sockfd, struct sockaddr *pserv_addr, int servlen, unsigned shor
 			}
 			
 			/* Send the WRQ packet. */
-			if (sendto_with_alarm(sockfd, (void *)&message, packetlen, 0, pserv_addr, servlen, 3) != packetlen)
+			bytes_received = sendto_with_alarm(sockfd, (void *)&message, packetlen, 0, pserv_addr, servlen, 3, &bytes_sent);
+			if (bytes_sent != packetlen)
 			{
 				printf("%s: ssendto error on socket \n", progname);
 				exit(3);
@@ -228,12 +233,13 @@ void request(int sockfd, struct sockaddr *pserv_addr, int servlen, unsigned shor
 		
 		/* Received first data block */
 		int bytes_received;
+		int bytes_sent;
 		
-		bytes_received = sendto_with_alarm(sockfd, (void *)&message, messageLength, 0, pserv_addr, servlen, 3);
+		bytes_received = sendto_with_alarm(sockfd, (void *)&message, messageLength, 0, pserv_addr, servlen, 3, &bytes_sent);
 
-		if (bytes_received != messageLength)
+		if (bytes_sent != messageLength)
 		{
-			printf("%s: recvfrom error 1\n", progname);
+			printf("%s: unable to send required bytes\n", progname);
 			exit(3);
 		}
 
@@ -269,8 +275,21 @@ void request(int sockfd, struct sockaddr *pserv_addr, int servlen, unsigned shor
 				if (possible_eof == EOF)
 				{
 					fwrite(message.data, 1, bytes_received - 5, flptr);
+
+					message.opCode = ACK;
+
+					bytes_sent = sendto(sockfd, &message, 4, 0, pserv_addr, servlen);
+
+					if (bytes_sent < 0)
+					{
+						printf("Server: sendto error in sending ack to server after last packet\n");
+						exit(4);
+					}
+								
 					printf("Last data packet received. Closing file 1. \n");
 					fclose(flptr);
+
+					
 					break;
 				}
 				else
@@ -280,7 +299,7 @@ void request(int sockfd, struct sockaddr *pserv_addr, int servlen, unsigned shor
 			}
 			message.opCode = ACK;
 			
-			bytes_received = sendto_with_alarm(sockfd, (void *)&message, 4, 0, pserv_addr, servlen, 3);
+			bytes_received = sendto_with_alarm(sockfd, (void *)&message, 4, 0, pserv_addr, servlen, 3, &bytes_sent);
 
 			if (bytes_received <= 0)
 			{
