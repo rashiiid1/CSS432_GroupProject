@@ -1,0 +1,25 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "C/C++ Runner: Debug Session",
+      "type": "cppdbg",
+      "request": "launch",
+      //"args": ["-p", "12345", "-w", "file_to_send.txt"],
+      "args": ["-p", "12345", "-r", "file_to_send.txt"],
+      "stopAtEntry": false,
+      "externalConsole": false,
+      "cwd": "/home/adil/VS_Code/tftp-3/client",
+      "program": "/home/adil/VS_Code/tftp-3/client/client",
+      "MIMode": "gdb",
+      "miDebuggerPath": "gdb",
+      "setupCommands": [
+        {
+          "description": "Enable pretty-printing for gdb",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        }
+      ]
+    }
+  ]
+}
